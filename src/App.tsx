@@ -46,6 +46,8 @@ import {
 } from 'firebase/firestore';
 import { 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider, 
   onAuthStateChanged, 
   signOut,
@@ -77,6 +79,7 @@ type CartItem = Product & { quantity: number };
 type AdminCheckStatus = 'signed-out' | 'checking' | 'authorized' | 'unauthorized' | 'error';
 
 const ADMIN_EMAILS = new Set(['12134189a@gmail.com']);
+const ADMIN_REDIRECT_PENDING_KEY = 'transit-market:admin-redirect-pending';
 
 const FIREBASE_ERROR_HINTS: Record<string, string> = {
   'auth/unauthorized-domain': 'Add this local host to Firebase Console > Authentication > Settings > Authorized domains.',
@@ -89,10 +92,14 @@ const FIREBASE_ERROR_HINTS: Record<string, string> = {
   'not-found': 'The requested Firestore resource was not found. Check the configured Firestore database ID.',
 };
 
-const formatFirebaseError = (error: unknown, fallback: string) => {
-  const code = typeof error === 'object' && error !== null && 'code' in error
+const getFirebaseErrorCode = (error: unknown) => (
+  typeof error === 'object' && error !== null && 'code' in error
     ? String((error as { code?: unknown }).code)
-    : null;
+    : null
+);
+
+const formatFirebaseError = (error: unknown, fallback: string) => {
+  const code = getFirebaseErrorCode(error);
   const message = error instanceof Error ? error.message : String(error);
   const hint = code ? FIREBASE_ERROR_HINTS[code] : undefined;
 
@@ -110,6 +117,30 @@ const createGoogleProvider = () => {
   provider.addScope('profile');
   provider.setCustomParameters({ prompt: 'select_account' });
   return provider;
+};
+
+const getPendingAdminRedirect = () => {
+  try {
+    return sessionStorage.getItem(ADMIN_REDIRECT_PENDING_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+const setPendingAdminRedirect = () => {
+  try {
+    sessionStorage.setItem(ADMIN_REDIRECT_PENDING_KEY, 'true');
+  } catch {
+    // Ignore storage failures; Firebase redirect still works without the marker.
+  }
+};
+
+const clearPendingAdminRedirect = () => {
+  try {
+    sessionStorage.removeItem(ADMIN_REDIRECT_PENDING_KEY);
+  } catch {
+    // Ignore storage failures.
+  }
 };
 
 // --- Real Products Catalog (50 Items) ---
@@ -311,8 +342,56 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [adminCheckStatus, setAdminCheckStatus] = useState<AdminCheckStatus>('checking');
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isCompletingRedirect, setIsCompletingRedirect] = useState(() => getPendingAdminRedirect());
   const [authError, setAuthError] = useState<string | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const hadPendingRedirect = getPendingAdminRedirect();
+
+    if (hadPendingRedirect) {
+      setCurrentView('admin');
+      setIsCompletingRedirect(true);
+      setAuthError(null);
+    }
+
+    getRedirectResult(auth)
+      .then((result) => {
+        if (!mounted) return;
+
+        if (result) {
+          console.info('Google redirect sign-in completed.', {
+            uid: result.user.uid,
+            email: result.user.email,
+          });
+          setCurrentView('admin');
+          setAuthError(null);
+        } else if (hadPendingRedirect) {
+          console.info('Google redirect completed without a new credential. Waiting for Firebase auth state.');
+        }
+      })
+      .catch((error) => {
+        const message = formatFirebaseError(error, 'Google redirect sign-in failed');
+        console.error(message, error);
+
+        if (!mounted) return;
+
+        setCurrentView('admin');
+        setAuthError(message);
+      })
+      .finally(() => {
+        clearPendingAdminRedirect();
+
+        if (mounted) {
+          setIsCompletingRedirect(false);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Auth Listener
   useEffect(() => {
@@ -322,7 +401,6 @@ export default function App() {
       if (!mounted) return;
 
       setUser(u);
-      setAuthError(null);
 
       if (!u) {
         setIsAdmin(false);
@@ -333,6 +411,7 @@ export default function App() {
 
       setAuthLoading(true);
       setAdminCheckStatus('checking');
+      setAuthError(null);
 
       try {
         const isAdminEmail = !!u.email && ADMIN_EMAILS.has(u.email.toLowerCase());
@@ -405,6 +484,7 @@ export default function App() {
   const login = async () => {
     setIsSigningIn(true);
     setAuthError(null);
+    setCurrentView('admin');
 
     try {
       const result = await signInWithPopup(auth, createGoogleProvider());
@@ -412,7 +492,29 @@ export default function App() {
         uid: result.user.uid,
         email: result.user.email,
       });
+      setCurrentView('admin');
     } catch (error) {
+      const code = getFirebaseErrorCode(error);
+
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/popup-blocked') {
+        console.warn('Google popup sign-in failed; falling back to redirect.', error);
+        const popupMessage = formatFirebaseError(error, 'Google popup sign-in failed; starting redirect fallback');
+        setPendingAdminRedirect();
+        setIsCompletingRedirect(true);
+
+        try {
+          await signInWithRedirect(auth, createGoogleProvider());
+          return;
+        } catch (redirectError) {
+          clearPendingAdminRedirect();
+          setIsCompletingRedirect(false);
+          const message = formatFirebaseError(redirectError, 'Google redirect sign-in failed');
+          console.error(message, redirectError);
+          setAuthError(`${popupMessage} Redirect fallback also failed: ${message}`);
+          return;
+        }
+      }
+
       const message = formatFirebaseError(error, 'Google sign-in failed');
       console.error(message, error);
       setAuthError(message);
@@ -506,6 +608,7 @@ export default function App() {
           authError={authError}
           user={user}
           isSigningIn={isSigningIn}
+          isCompletingRedirect={isCompletingRedirect}
           onLogin={login}
           onLogout={logout}
           onSeed={seedData}
@@ -542,6 +645,15 @@ export default function App() {
         </div>
       )}
 
+      {isCompletingRedirect && !authError && (
+        <div role="status" className="fixed top-20 left-4 right-4 z-[120] mx-auto max-w-sm rounded-2xl border border-lebanese-gold/30 bg-white p-4 text-left shadow-2xl shadow-lebanese-cedar/10">
+          <div className="flex items-center gap-3">
+            <Clock className="animate-spin text-lebanese-cedar" size={20} />
+            <p className="text-sm font-bold text-lebanese-cedar">Completing Google sign-in...</p>
+          </div>
+        </div>
+      )}
+
       {/* Top Header - Minimal for Mobile */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'glass-nav h-16 shadow-lg shadow-lebanese-cedar/5' : 'h-20'}`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
@@ -563,11 +675,11 @@ export default function App() {
             ) : (
               <button 
                 onClick={login}
-                disabled={isSigningIn || authLoading}
+                disabled={isSigningIn || isCompletingRedirect || authLoading}
                 className="text-lebanese-cedar p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors disabled:cursor-wait disabled:opacity-50"
-                title={isSigningIn || authLoading ? "Checking sign-in status" : "Staff Login"}
+                title={isCompletingRedirect ? "Completing Google sign-in" : (isSigningIn || authLoading ? "Checking sign-in status" : "Staff Login")}
               >
-                {isSigningIn || authLoading ? <Clock size={22} className="animate-spin" /> : <LogIn size={22} />}
+                {isSigningIn || isCompletingRedirect || authLoading ? <Clock size={22} className="animate-spin" /> : <LogIn size={22} />}
               </button>
             )}
             <button 
@@ -670,11 +782,11 @@ export default function App() {
             <button onClick={() => setCurrentView('contact')} className="hover:text-lebanese-cedar transition-colors">Contact</button>
             <button 
               onClick={isAdmin ? () => setCurrentView('admin') : login} 
-              disabled={!isAdmin && (isSigningIn || authLoading)}
+              disabled={!isAdmin && (isSigningIn || isCompletingRedirect || authLoading)}
               className={`hover:text-lebanese-gold transition-colors flex items-center gap-1 disabled:cursor-wait disabled:opacity-50 ${isAdmin ? 'text-lebanese-gold' : ''}`}
             >
               <Lock size={10} />
-              {isAdmin ? 'Admin Dashboard' : (isSigningIn || authLoading ? 'Checking Access' : 'Staff Login')}
+              {isAdmin ? 'Admin Dashboard' : (isCompletingRedirect ? 'Completing Sign-in' : (isSigningIn || authLoading ? 'Checking Access' : 'Staff Login'))}
             </button>
           </div>
           <div className="text-center space-y-2">
@@ -1090,6 +1202,7 @@ type AdminViewProps = {
   authError: string | null;
   user: User | null;
   isSigningIn: boolean;
+  isCompletingRedirect: boolean;
   onLogin: () => Promise<void>;
   onLogout: () => Promise<void>;
   onSeed: () => void;
@@ -1104,6 +1217,7 @@ function AdminView({
   authError,
   user,
   isSigningIn,
+  isCompletingRedirect,
   onLogin,
   onLogout,
   onSeed,
@@ -1114,6 +1228,18 @@ function AdminView({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  if (isCompletingRedirect) {
+    return (
+      <div className="px-6 py-20 text-center">
+        <Clock className="mx-auto mb-6 animate-spin text-lebanese-cedar opacity-40" size={56} />
+        <h2 className="text-2xl font-serif text-lebanese-cedar mb-4">Completing Google sign-in...</h2>
+        <p className="mx-auto max-w-md text-zinc-500">
+          Please wait while Firebase finishes the Google redirect and restores your staff session.
+        </p>
+      </div>
+    );
+  }
 
   if (authLoading || adminCheckStatus === 'checking') {
     return (
@@ -1147,11 +1273,11 @@ function AdminView({
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
           <button
             onClick={onLogin}
-            disabled={isSigningIn}
+            disabled={isSigningIn || isCompletingRedirect}
             className="bg-lebanese-cedar text-white px-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 disabled:cursor-wait disabled:opacity-60"
           >
-            {isSigningIn ? <Clock size={20} className="animate-spin" /> : <LogIn size={20} />}
-            <span>{isSigningIn ? 'Opening Google...' : 'Login with Google'}</span>
+            {isSigningIn || isCompletingRedirect ? <Clock size={20} className="animate-spin" /> : <LogIn size={20} />}
+            <span>{isCompletingRedirect ? 'Completing Google sign-in...' : (isSigningIn ? 'Opening Google...' : 'Login with Google')}</span>
           </button>
           {user && (
             <button
