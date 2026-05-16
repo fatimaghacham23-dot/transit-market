@@ -718,18 +718,18 @@ export default function App() {
 
       {/* Top Header - Minimal for Mobile */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'glass-nav h-16 shadow-lg shadow-lebanese-cedar/5' : 'h-20'}`}>
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="flex flex-col cursor-pointer group" onClick={() => setCurrentView('home')}>
-            <span className="text-xl font-serif font-black tracking-tighter text-lebanese-cedar leading-none flex items-center gap-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col cursor-pointer group" onClick={() => setCurrentView('home')}>
+            <span className="text-lg sm:text-xl font-serif font-black tracking-tighter text-lebanese-cedar leading-none flex items-center gap-1 whitespace-nowrap">
               TRANSIT <span className="text-lebanese-gold transition-colors group-hover:text-lebanese-cedar underline underline-offset-4 decoration-lebanese-gold/30">MARKET</span>
             </span>
             <span className="text-[7px] font-black tracking-[0.4em] text-zinc-400 uppercase mt-0.5">Tradition of Aramoun</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {isAdmin ? (
               <button 
                 onClick={() => setCurrentView('admin')}
-                className={`p-2 rounded-full transition-colors ${currentView === 'admin' ? 'bg-lebanese-cedar text-white' : 'text-lebanese-cedar hover:bg-lebanese-cedar/5'}`}
+                className={`p-1.5 sm:p-2 rounded-full transition-colors ${currentView === 'admin' ? 'bg-lebanese-cedar text-white' : 'text-lebanese-cedar hover:bg-lebanese-cedar/5'}`}
                 title="Admin Dashboard"
               >
                 <Settings size={22} />
@@ -738,7 +738,7 @@ export default function App() {
               <button 
                 onClick={login}
                 disabled={isSigningIn || isCompletingRedirect || authLoading}
-                className="text-lebanese-cedar p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors disabled:cursor-wait disabled:opacity-50"
+                className="text-lebanese-cedar p-1.5 sm:p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors disabled:cursor-wait disabled:opacity-50"
                 title={isCompletingRedirect ? "Completing Google sign-in" : (isSigningIn || authLoading ? "Checking sign-in status" : "Staff Login")}
               >
                 {isSigningIn || isCompletingRedirect || authLoading ? <Clock size={22} className="animate-spin" /> : <LogIn size={22} />}
@@ -746,11 +746,11 @@ export default function App() {
             )}
             <button 
               onClick={() => setSearchOpen(!searchOpen)}
-              className="text-lebanese-cedar p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors"
+              className="text-lebanese-cedar p-1.5 sm:p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors"
             >
               <Search size={22} />
             </button>
-            <div className="relative cursor-pointer p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors" onClick={() => setCurrentView('cart')}>
+            <div className="relative cursor-pointer p-1.5 sm:p-2 hover:bg-lebanese-cedar/5 rounded-full transition-colors" onClick={() => setCurrentView('cart')}>
               <ShoppingBag size={22} className="text-lebanese-cedar" />
               {cartCount > 0 && (
                 <motion.span 
@@ -762,6 +762,17 @@ export default function App() {
                 </motion.span>
               )}
             </div>
+            <button
+              onClick={() => setCurrentView('home')}
+              aria-label="Go to Transit Market home"
+              className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-lebanese-cedar/10 bg-white shadow-lg shadow-lebanese-cedar/10 transition-transform active:scale-95"
+            >
+              <img
+                src="/images/transit-market-logo.jpg"
+                alt="Transit Market logo"
+                className="h-full w-full object-cover"
+              />
+            </button>
           </div>
         </div>
         
@@ -1614,13 +1625,13 @@ function StoryView() {
     <div className="px-6 pb-20 space-y-16">
       <header className="space-y-6">
         <SectionTitle title="Aramoun Heritage" subtitle="The Transit Story" />
-        <div className="relative rounded-[56px] overflow-hidden aspect-[4/5] shadow-2xl">
-          <HeroImage 
-            name="Story Hero" 
-            type="story" 
-            label="Our Roots" 
+        <div className="relative rounded-[56px] overflow-hidden aspect-[4/5] shadow-2xl md:aspect-[16/9]">
+          <img
+            src="/images/story-first-day-background.png"
+            alt="Transit Market in a Lebanese mountain village"
+            className="absolute inset-0 h-full w-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-lebanese-cedar/80 via-lebanese-cedar/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-lebanese-cedar/90 via-lebanese-cedar/35 to-transparent" />
           <div className="absolute bottom-10 left-10 right-10">
             <p className="text-3xl font-serif text-white leading-tight">Since our first day in Aramoun, we knew quality couldn't be rushed.</p>
           </div>
@@ -1650,11 +1661,18 @@ function StoryView() {
         </div>
       </div>
 
-      <div className="bg-lebanese-cedar rounded-[56px] p-12 text-white space-y-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-        <h3 className="text-3xl font-serif leading-tight">Join us in supporting <br/><span className="text-lebanese-gold">Lebanese Farmers.</span></h3>
-        <p className="text-emerald-50/60 font-light leading-relaxed">By shopping at Transit, you're directly contributing to the sustainability of small groves across the country.</p>
-        <div className="flex items-center gap-4 text-lebanese-gold font-black uppercase text-xs tracking-widest pt-4">
+      <div className="rounded-[56px] p-12 text-white space-y-8 relative overflow-hidden shadow-2xl shadow-lebanese-cedar/20">
+        <img
+          src="/images/farmers-support-background.png"
+          alt="Transit Market supporting Lebanese farmers"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-lebanese-cedar/95 via-lebanese-cedar/70 to-lebanese-cedar/25" />
+        <div className="relative z-10 space-y-8 max-w-sm">
+          <h3 className="text-3xl font-serif leading-tight">Join us in supporting <br/><span className="text-lebanese-gold">Lebanese Farmers.</span></h3>
+          <p className="text-emerald-50/80 font-light leading-relaxed">By shopping at Transit, you're directly contributing to the sustainability of small groves across the country.</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-4 text-lebanese-gold font-black uppercase text-xs tracking-widest pt-4">
           <span>Our Community</span>
           <ArrowRight size={16} />
         </div>
