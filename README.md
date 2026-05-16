@@ -2,7 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Run and deploy Transit Market
 
 This contains everything you need to run your app locally.
 
@@ -15,17 +15,19 @@ View your app in AI Studio: https://ai.studio/apps/e8a6c609-c07e-43cd-b27c-40bb1
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Copy [.env.example](.env.example) to `.env.local` and fill in the `GEMINI_API_KEY` and `VITE_FIREBASE_*` values
 3. Run the app:
    `npm run dev`
 
 ## Firebase Auth setup
 
-Firebase config is currently read from [firebase-applet-config.json](firebase-applet-config.json). If you move Firebase config into `.env.local` in this Vite app, client-side Firebase variables must use the `VITE_` prefix, such as `VITE_FIREBASE_API_KEY`.
+Firebase config is read from Vite environment variables in `.env.local` and Vercel environment variables. Client-side Firebase variables must use the `VITE_` prefix, such as `VITE_FIREBASE_API_KEY`.
+
+This app uses the Firebase project `transit-market-d1fff`, the default Firestore database, Google Auth, and Firebase Storage bucket `transit-market-d1fff.firebasestorage.app`. Do not set a Firestore database ID unless the project is changed to a real custom database.
 
 For local Google admin login, Firebase Console must have:
 
 - Authentication > Sign-in method > Google enabled
-- Authentication > Settings > Authorized domains: `localhost` and `127.0.0.1`
+- Authentication > Settings > Authorized domains: `localhost`, `127.0.0.1`, and `transit-market.vercel.app`
 
-Admin access is checked against the hardcoded bootstrap email in `src/App.tsx` and the Firestore document `admins/{uid}`. If sign-in succeeds but that document is missing, the app displays an `admin/missing-role` message instead of failing silently.
+Admin access is checked against the bootstrap email `12134189a@gmail.com` and the Firestore document `admins/{uid}`. If sign-in succeeds but that document is missing, the app displays an `admin/missing-role` message with the signed-in UID and the exact document path to create.

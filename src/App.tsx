@@ -346,7 +346,7 @@ export default function App() {
 
         if (!hasAdminRole) {
           setAuthError(
-            `Admin access denied (admin/missing-role) - Signed in as ${u.email ?? u.uid}, but no admin document exists at admins/${u.uid}.`
+            `Admin access denied (admin/missing-role) - Signed in as ${u.email ?? u.uid}. UID: ${u.uid}. To grant access, create a Firestore document at admins/${u.uid} in the default database, or sign in with the bootstrap admin email 12134189a@gmail.com.`
           );
         }
       } catch (error) {

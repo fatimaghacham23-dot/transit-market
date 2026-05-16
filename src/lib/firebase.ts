@@ -1,33 +1,31 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseAppletConfig from '../../firebase-applet-config.json';
 
-type FirebaseAppletConfig = FirebaseOptions & {
-  firestoreDatabaseId?: string;
+const requiredEnv = (key: keyof ImportMetaEnv) => {
+  const value = import.meta.env[key];
+
+  if (!value) {
+    throw new Error(`Missing Firebase environment variable: ${key}. Add it to .env.local locally and to Vercel environment variables in production.`);
+  }
+
+  return value;
 };
 
-const firebaseConfig = firebaseAppletConfig as FirebaseAppletConfig;
+export const firebaseConfig: FirebaseOptions = {
+  apiKey: requiredEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: requiredEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: requiredEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: requiredEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: requiredEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: requiredEnv('VITE_FIREBASE_APP_ID'),
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+
 const app = initializeApp(firebaseConfig);
 
-// AI Studio exports can target a named Firestore database; use it when present.
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Use the new Firebase project's default Firestore database.
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-
-// Connectivity check
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    } else {
-      console.warn("Firebase connection check failed.", error);
-    }
-  }
-}
-testConnection();
