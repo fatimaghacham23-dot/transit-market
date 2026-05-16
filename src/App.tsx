@@ -807,11 +807,11 @@ function HomeView({ products, onShopNow, onCategoryClick, onProductClick }: { pr
       <section className="px-6">
         <div className="relative h-[65vh] rounded-[48px] overflow-hidden flex flex-col justify-end p-8 shadow-2xl shadow-lebanese-cedar/30">
           <div className="absolute inset-0">
-             <HeroImage 
-               name="Home Hero" 
-               type="hero" 
-               label="The Transit Market" 
-             />
+            <img
+              src="/images/lebanese-flavor-background.png"
+              alt="Lebanese mountain farms and local pantry goods"
+              className="h-full w-full object-cover"
+            />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-lebanese-cedar/95 via-lebanese-cedar/40 to-transparent" />
           <div className="relative z-10 text-white">
