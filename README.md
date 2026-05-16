@@ -23,7 +23,7 @@ View your app in AI Studio: https://ai.studio/apps/e8a6c609-c07e-43cd-b27c-40bb1
 
 Firebase config is read from Vite environment variables in `.env.local` and Vercel environment variables. Client-side Firebase variables must use the `VITE_` prefix, such as `VITE_FIREBASE_API_KEY`.
 
-This app uses the Firebase project `transit-market-d1fff`, the default Firestore database, Google Auth, and Firebase Storage bucket `transit-market-d1fff.firebasestorage.app`. Do not set a Firestore database ID unless the project is changed to a real custom database.
+This app uses the Firebase project `transit-market-d1fff`, the default Firestore database, and Google Auth. Product image uploads are compressed in the browser and saved as data URL strings in Firestore; Firebase Storage is not used. Do not set a Firestore database ID unless the project is changed to a real custom database.
 
 For local Google admin login, Firebase Console must have:
 

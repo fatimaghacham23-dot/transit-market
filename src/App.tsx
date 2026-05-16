@@ -53,12 +53,7 @@ import {
   signOut,
   User
 } from 'firebase/auth';
-import { 
-  ref, 
-  uploadBytes, 
-  getDownloadURL 
-} from 'firebase/storage';
-import { db, auth, storage } from './lib/firebase';
+import { db, auth } from './lib/firebase';
 
 // --- Types ---
 type View = 'home' | 'bazaar' | 'story' | 'contact' | 'cart' | 'admin';
@@ -80,6 +75,10 @@ type AdminCheckStatus = 'signed-out' | 'checking' | 'authorized' | 'unauthorized
 
 const ADMIN_EMAILS = new Set(['12134189a@gmail.com']);
 const ADMIN_REDIRECT_PENDING_KEY = 'transit-market:admin-redirect-pending';
+const MAX_UPLOAD_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1200;
+const MAX_FIRESTORE_IMAGE_DATA_URL_BYTES = 800 * 1024;
+const IMAGE_OUTPUT_QUALITIES = [0.75, 0.65, 0.55, 0.45];
 
 const FIREBASE_ERROR_HINTS: Record<string, string> = {
   'auth/unauthorized-domain': 'Add this local host to Firebase Console > Authentication > Settings > Authorized domains.',
@@ -119,6 +118,69 @@ const createGoogleProvider = () => {
   return provider;
 };
 
+const getStringByteSize = (value: string) => new TextEncoder().encode(value).length;
+
+const canvasSupportsWebP = () => {
+  const canvas = document.createElement('canvas');
+  return canvas.toDataURL('image/webp').startsWith('data:image/webp');
+};
+
+const loadImageFromFile = (file: File) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+
+  image.onload = () => {
+    URL.revokeObjectURL(objectUrl);
+    resolve(image);
+  };
+
+  image.onerror = () => {
+    URL.revokeObjectURL(objectUrl);
+    reject(new Error('Could not read the selected image file.'));
+  };
+
+  image.src = objectUrl;
+});
+
+const compressImageToDataUrl = async (file: File) => {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file.');
+  }
+
+  if (file.size > MAX_UPLOAD_IMAGE_BYTES) {
+    throw new Error('Image is too large. Please choose an image under 5 MB.');
+  }
+
+  const image = await loadImageFromFile(file);
+  const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    throw new Error('This browser could not prepare the image canvas.');
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  const mimeType = canvasSupportsWebP() ? 'image/webp' : 'image/jpeg';
+
+  for (const quality of IMAGE_OUTPUT_QUALITIES) {
+    const dataUrl = canvas.toDataURL(mimeType, quality);
+
+    if (getStringByteSize(dataUrl) <= MAX_FIRESTORE_IMAGE_DATA_URL_BYTES) {
+      return dataUrl;
+    }
+  }
+
+  throw new Error('The compressed image is still too large for Firestore. Try a smaller or simpler image.');
+};
+
 const getPendingAdminRedirect = () => {
   try {
     return sessionStorage.getItem(ADMIN_REDIRECT_PENDING_KEY) === 'true';
@@ -131,7 +193,7 @@ const setPendingAdminRedirect = () => {
   try {
     sessionStorage.setItem(ADMIN_REDIRECT_PENDING_KEY, 'true');
   } catch {
-    // Ignore storage failures; Firebase redirect still works without the marker.
+    // Firebase redirect still works if sessionStorage is unavailable.
   }
 };
 
@@ -139,7 +201,7 @@ const clearPendingAdminRedirect = () => {
   try {
     sessionStorage.removeItem(ADMIN_REDIRECT_PENDING_KEY);
   } catch {
-    // Ignore storage failures.
+    // Ignore unavailable sessionStorage.
   }
 };
 
@@ -1294,21 +1356,26 @@ function AdminView({
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget;
     const file = e.target.files?.[0];
-    if (!file || !editingProduct) return;
+    if (!file || !editingProduct) {
+      input.value = '';
+      return;
+    }
 
     setUploading(true);
+    onError(null);
+
     try {
-      const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(snapshot.ref);
-      setEditingProduct({ ...editingProduct, image: url });
+      const image = await compressImageToDataUrl(file);
+      setEditingProduct((current) => current ? { ...current, image } : current);
     } catch (error) {
-      const message = formatFirebaseError(error, 'Image upload failed');
+      const message = error instanceof Error ? error.message : 'Image processing failed. Please try a different image.';
       console.error(message, error);
       onError(message);
     } finally {
       setUploading(false);
+      input.value = '';
     }
   };
 

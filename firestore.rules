@@ -27,7 +27,7 @@ service cloud.firestore {
              data.keys().size() <= 10 &&
              data.name is string && data.name.size() <= 200 &&
              data.price is string && data.price.size() <= 50 &&
-             data.image is string && data.image.size() <= 1000 &&
+             data.image is string && data.image.size() <= 819200 &&
              data.category is string && data.category.size() <= 50 &&
              data.description is string && data.description.size() <= 1000 &&
              data.origin is string && data.origin.size() <= 100;
