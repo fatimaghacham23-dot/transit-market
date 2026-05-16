@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@300;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-display: "Space Grotesk", sans-serif;
+  
+  --color-lebanese-cedar: #1b4332;
+  --color-lebanese-gold: #c5a059;
+  --color-lebanese-stone: #fdfbf7;
+  --color-lebanese-clay: #bc4749;
+}
+
+@layer base {
+  body {
+    @apply bg-lebanese-stone text-zinc-900 selection:bg-lebanese-gold selection:text-white;
+  }
+}
+
+.serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+.glass-nav {
+  @apply bg-lebanese-stone/80 backdrop-blur-md border-b border-lebanese-cedar/10;
+}

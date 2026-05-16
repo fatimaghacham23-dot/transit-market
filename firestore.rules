@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    function isAdmin() {
+      // Check if user exists in the admins collection
+      // For bootstrapping, we'll also allow the user with email '12134189a@gmail.com'
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == '12134189a@gmail.com'
+      );
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'price', 'image', 'category', 'description', 'origin']) &&
+             data.keys().size() <= 10 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.price is string && data.price.size() <= 50 &&
+             data.image is string && data.image.size() <= 1000 &&
+             data.category is string && data.category.size() <= 50 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.origin is string && data.origin.size() <= 100;
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+  }
+}

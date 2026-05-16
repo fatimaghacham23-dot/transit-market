@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A grocery item in the transit market.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "origin": { "type": "string" },
+        "price": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "tag": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["name", "price", "image", "category"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "An administrative user.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of products available in the bazaar."
+    },
+    "admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Collection of allowed admin emails."
+    }
+  }
+}
